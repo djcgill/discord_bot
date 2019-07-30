@@ -1,12 +1,13 @@
+import base64
 import datetime
 import discord
-import re
-import time
 import hashlib
-import requests
 import json
-import base64
 import pickledb
+import time
+import re
+import requests
+
 from urllib.parse import urlparse
 
 #Some globals.
@@ -301,7 +302,7 @@ async def on_message(message):
         elif file.risk == 'PUA':
             await message.channel.send("This file looks a bit dodgy. Proceed with caution or don't its up to you.")
 
-    urls = re.findall('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+',message.content.lower())
+    urls = re.findall('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+',message.content.lower()) # TODO: Improve regex
     
     if urls:
         msg = message.content.lower()
