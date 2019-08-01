@@ -3,6 +3,8 @@ import json
 import time
 import requests
 
+from urllib.parse import urlparse
+
 class InvalidRequestException(Exception):
     pass
 
@@ -15,10 +17,14 @@ class InvalidTokenException(Exception):
     pass
 
 
-class IntelixRequest:
+class IntelixObject:
     """Class to handle intelix requests"""
-    def __init__(client_id, client_secret):
-        self.basic_auth = base64.b64encode(bytes(f"{client_id}:{client_secret}", 'utf-8'))
+    def __init__(self, client_id=None, client_secret=None):
+        if client_id and client_secret:
+            self.basic_auth = base64.b64encode(bytes(f"{client_id}:{client_secret}", 'utf-8'))
+        else:
+            raise ValueError("Client ID with corresponding secret needed")
+
         self.api_url_scheme = "https://de.api.labs.sophos.com"
         self.auth_timestamp = None
         self.access_token = None
@@ -53,6 +59,7 @@ class IntelixRequest:
 
     def determine_region(self):
         # Find out which region to use for URL
+        #boto? metadata?
         raise NotImplementedError
 
     @staticmethod
@@ -66,20 +73,18 @@ class IntelixRequest:
         return parsed_json['error']
 
 
-class IntelixUrl(IntelixRequest):
-    def __init__(urls: list):
-        self.urls = urls
+class IntelixScanner(IntelixObject):
+    def get_score(**kwargs):
+        if 'url' in kwargs:
+            with Url as url_scanner:
+                url_scanner.lookup(kwargs['url'])
+                return url_scanner
+        elif 'file' in kwargs:
+            with File as file_scanner:
+                file_scanner.lookup(['file'])
+                return file_scanner
 
-    def get_score():
-        pass
-
-
-class IntelixFile(IntelixRequest):
-    """Class to handle intelix file requests"""
-    def __init__():
-        pass
-
-    def lookup(self):
+    def lookup(sha256: str) -> dict:
         pass
 
     def scan_static(self):
@@ -87,3 +92,28 @@ class IntelixFile(IntelixRequest):
 
     def scan_dynamic(self):
         pass
+
+class File(IntelixScanner):
+    def __init__(self, **options):
+        self.score = options.get('score', None)
+
+class Url(IntelixScanner):
+    def __init__(self, **options):
+        self.score = options.get('score', None)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        if exc_type:
+            print(f'exc_type: {exc_type}')
+            print(f'exc_value: {exc_value}')
+            print(f'exc_traceback: {exc_traceback}')
+
+    def lookup(url: str) -> dict:
+        pass
+
+
+def extract_domain(url: str) -> str:
+    parsed_url = urlparse(url)
+    return parsed_url.netloc
