@@ -23,6 +23,9 @@ score = file_scan.score
 satic_results = file_scan.static_scan()
 '''
 
+MAX_FILE_SIZE=4718592
+
+
 class IntelixObject:
     """Class to handle intelix requests"""
     def __init__(self, client_id=None, client_secret=None):
@@ -137,6 +140,47 @@ class File(IntelixObject):
             raise NotImplementedError
             #TODO: AWS recomended eror retry
 
+    def parse_lookup_result(self, lookup_json: bytes):
+        result = json.loads(lookup_json.decode('utf-8'))
+
+        try:
+            self.score = int(result['reputationScore'])
+            self.present = True
+            if self.score < 20:
+                self.risk_level = 'MALWARE'
+            elif self.score < 30:
+                self.risk_level = 'PUA'
+            elif self.score < 70:
+                self.risk_level = 'UNKNOWN'
+        except KeyError:
+            # If no score given assume first time file has been seen and set it UNKNOWN
+            self.score = 31
+            self.risk_level = 'UNKNOWN'
+            self.present = False
+
+        self.detection = result.get('detectionName', None)
+        self.ttl = result.get('ttl', None)
+
+    def _submit_for_analysis(self, file_content: bytes, scan_type: str, correlationId: str) -> Reponse:
+        if not self.token_valid:
+            self.authenticate
+
+        #TODO: implement file size checking
+
+        scan_url = f"{self.api_url_scheme}/analysis/file/{scan_type}/v1"
+        headers = {
+            "Authorization": self.token,
+            "X-Correlation-ID": correlationId
+                   }
+        file = {'file': file_content}
+
+        scan_response = requests.get(
+            url = scan_url,
+            headers = headers,
+            files = file
+        )
+
+        return scan_response
 
     def scan_static(self):
         pass
@@ -188,8 +232,7 @@ class Url(IntelixObject):
             parsed_url = urlparse(url)
             return parsed_url.netloc
 
-        @staticmethod
-        def parse_lookup_result(lookup_json: bytes):
+        def parse_lookup_result(self, lookup_json: bytes):
             result = json.loads(lookup_json.decode('utf-8'))
 
             self.risk_level = result.get('riskLevel', 'UNCLASSIFIED')
