@@ -112,8 +112,31 @@ class File(IntelixObject):
     def __enter__(self):
         return self
 
-    def lookup(sha256: str) -> dict:
-        pass
+    def lookup(self, sha256: str, correlationId: str):
+        if not self.token_valid:
+            self.authenticate()
+
+        lookup_url = f"{self.api_url_scheme}/lookup/files/v1/{sha256}"
+        headers = {
+            "Authorization": self.token,
+            "X-Correlation-ID": correlationId
+                   }
+
+        lookup_response = requests.get(
+            url = lookup_url,
+            headers = headers
+        )
+
+        if lookup_response.status_code == HTTPStatus.OK:
+            self.parse_lookup_result(lookup_response.content)
+        elif lookup_response.status_code == HTTPStatus.UNAUTHORIZED:
+            raise InvalidTokenException("Credentials not authorized for this service")
+        elif lookup_response.status_code == HTTPStatus.NOT_FOUND:
+            raise UrlNotFound('No data found for URL')
+        else:
+            raise NotImplementedError
+            #TODO: AWS recomended eror retry
+
 
     def scan_static(self):
         pass
@@ -135,7 +158,7 @@ class Url(IntelixObject):
     def __enter__(self):
         return self
 
-    def lookup(self, url: str, correlationId: str) -> dict:
+    def lookup(self, url: str, correlationId: str):
         url_domain = extract_domain(url)
         if not self.token_valid:
             self.authenticate()
