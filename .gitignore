@@ -3,3 +3,4 @@ conf.json
 bot_env/
 __pycache__
 *.pyc
+.vscode/

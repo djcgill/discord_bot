@@ -4,10 +4,10 @@ import time
 import requests
 
 from http import HTTPStatus
+from requests import Response
 from urllib.parse import urlparse
 
-from .exceptions import (
-    InvalidRequestException, InvalidClientException, InvalidTokenException, UrlNotFound)
+from .exceptions import InvalidRequestException, InvalidClientException, InvalidTokenException, UrlNotFound
 
 '''
 Want this implementation
@@ -36,8 +36,8 @@ class IntelixObject:
 
         self.api_url_scheme = "https://de.api.labs.sophos.com"
         self.auth_timestamp = None
-        self.access_token = None
-        self.token  = self._token_valid
+        self.token = None
+        self.token_valid  = self._token_valid
         self.authenticate()
 
     def authenticate(self):
@@ -48,7 +48,7 @@ class IntelixObject:
         response = requests.post(url=token_url, headers=headers, data=data)
 
         if response.status_code == 200:
-            self.access_token, self.ttl = self.parse_access_token(response.content)
+            self.token, self.ttl = self.parse_access_token(response.content)
             self.auth_timestamp = time.time()
         elif response.status_code == 400:
             error = self.get_auth_error(response.content)
@@ -161,7 +161,7 @@ class File(IntelixObject):
         self.detection = result.get('detectionName', None)
         self.ttl = result.get('ttl', None)
 
-    def _submit_for_analysis(self, file_content: bytes, scan_type: str, correlationId: str) -> Reponse:
+    def _submit_for_analysis(self, file_content: bytes, scan_type: str, correlationId: str) -> Response:
         if not self.token_valid:
             self.authenticate
 
