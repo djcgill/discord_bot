@@ -5,8 +5,10 @@ import requests
 
 from http import HTTPStatus
 from requests import Response
+
 from urllib.parse import urlparse
 
+from .client import Client
 from .exceptions import InvalidRequestException, InvalidClientException, InvalidTokenException, UrlNotFound
 
 '''
@@ -24,64 +26,6 @@ satic_results = file_scan.static_scan()
 '''
 
 MAX_FILE_SIZE=4718592
-
-
-class IntelixObject:
-    """Class to handle intelix requests"""
-    def __init__(self, client_id=None, client_secret=None):
-        if client_id and client_secret:
-            self.basic_auth = base64.b64encode(bytes(f"{client_id}:{client_secret}", 'utf-8'))
-        else:
-            raise ValueError("Client ID with corresponding secret needed")
-
-        self.api_url_scheme = "https://de.api.labs.sophos.com"
-        self.auth_timestamp = None
-        self.token = None
-        self.token_valid  = self._token_valid
-        self.authenticate()
-
-    def authenticate(self):
-        token_url = f"{self.api_url_scheme}/oauth2/token"
-        headers = {'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': f'Basic {self.basic_auth.decode("utf-8")}'}
-        data = {'grant_type': 'client_credentials'}
-
-        response = requests.post(url=token_url, headers=headers, data=data)
-
-        if response.status_code == 200:
-            self.token, self.ttl = self.parse_access_token(response.content)
-            self.auth_timestamp = time.time()
-        elif response.status_code == 400:
-            error = self.get_auth_error(response.content)
-            if error == 'invalid_request':
-                raise InvalidRequestException
-            elif error == 'ivalid_client':
-                raise InvalidClientException
-            elif error == 'invalidToken':
-                raise InvalidTokenException
-            else:
-                raise Exception(f'Unkown authentication error: {error}')
-        else:
-            raise Exception(f'Unkown Error: {response.text}')
-
-    def _token_valid(self):
-        delta = time.time() - self.auth_timestamp
-        return delta < 3600
-
-    def determine_region(self):
-        # Find out which region to use for URL
-        #boto? metadata?
-        raise NotImplementedError
-
-    @staticmethod
-    def parse_access_token(auth_json: bytes) -> tuple:
-        parsed_json = json.loads(auth_json)
-        return parsed_json['access_token'], int(parsed_json['expires_in'])
-
-    @staticmethod
-    def get_auth_error(auth_json: bytes) -> int:
-        parsed_json = json.loads(auth_json)
-        return parsed_json['error']
-
 
 class IntelixScanner:
     def __init__(self, client_id, client_secret):
@@ -102,7 +46,7 @@ class IntelixScanner:
                 return file_scanner
 
 
-class File(IntelixObject):
+class File(Client):
     def __init__(self, **options):
         self.score = options.get('score', None)
 
@@ -117,7 +61,7 @@ class File(IntelixObject):
 
     def lookup(self, sha256: str, correlationId: str):
         if not self.token_valid:
-            self.authenticate()
+            self._authenticate()
 
         lookup_url = f"{self.api_url_scheme}/lookup/files/v1/{sha256}"
         headers = {
@@ -188,7 +132,7 @@ class File(IntelixObject):
     def scan_dynamic(self):
         pass
 
-class Url(IntelixObject):
+class Url(Client):
     def __init__(self, **options: dict):
         self.score = options.get('score', None)
         self.present = None
@@ -205,7 +149,7 @@ class Url(IntelixObject):
     def lookup(self, url: str, correlationId: str):
         url_domain = extract_domain(url)
         if not self.token_valid:
-            self.authenticate()
+            self._authenticate()
 
         lookup_url = f"{self.api_url_scheme}/lookup/urls/{url_domain}"
         headers = {"Authorization": self.token,
